@@ -41,6 +41,8 @@ import {
 import { ADD_ITEM_TO_ORDER, GET_ACTIVE_ORDER } from './graphql/shop-queries';
 import { setShipping } from './payment-helpers';
 
+const defaultChannelToken = String(E2E_DEFAULT_CHANNEL_TOKEN);
+
 export const CREATE_STRIPE_PAYMENT_INTENT = gql`
     mutation createStripePaymentIntent {
         createStripePaymentIntent
@@ -106,7 +108,7 @@ describe('Stripe payments', () => {
             CreatePaymentMethodMutationVariables
         >(CREATE_PAYMENT_METHOD, {
             input: {
-                code: `stripe-payment-${E2E_DEFAULT_CHANNEL_TOKEN}`,
+                code: `stripe-payment-${defaultChannelToken}`,
                 translations: [
                     {
                         name: 'Stripe payment test',
@@ -124,7 +126,7 @@ describe('Stripe payments', () => {
                 },
             },
         });
-        expect(createPaymentMethod.code).toBe(`stripe-payment-${E2E_DEFAULT_CHANNEL_TOKEN}`);
+        expect(createPaymentMethod.code).toBe(`stripe-payment-${defaultChannelToken}`);
 
         await shopClient.asUserWithCredentials(customers[0].emailAddress, 'test');
         await setShipping(shopClient);
@@ -172,7 +174,7 @@ describe('Stripe payments', () => {
             currency: activeOrder?.currencyCode?.toLowerCase(),
             customer: 'new-customer-id',
             'automatic_payment_methods[enabled]': 'true',
-            'metadata[channelToken]': E2E_DEFAULT_CHANNEL_TOKEN,
+            'metadata[channelToken]': defaultChannelToken,
             'metadata[orderId]': '1',
             'metadata[orderCode]': activeOrder?.code,
             'metadata[languageCode]': 'en',
@@ -205,7 +207,7 @@ describe('Stripe payments', () => {
             currency: activeOrder?.currencyCode?.toLowerCase(),
             customer: 'new-customer-id',
             'automatic_payment_methods[enabled]': 'true',
-            'metadata[channelToken]': E2E_DEFAULT_CHANNEL_TOKEN,
+            'metadata[channelToken]': defaultChannelToken,
             'metadata[orderId]': '1',
             'metadata[orderCode]': activeOrder?.code,
             'metadata[languageCode]': 'en',
@@ -220,8 +222,10 @@ describe('Stripe payments', () => {
         StripePlugin.options.paymentIntentCreateParams = async (injector, ctx, currentOrder) => {
             const hydrator = injector.get(EntityHydrator);
             await hydrator.hydrate(ctx, currentOrder, { relations: ['customer'] });
+            const orderCode = String(currentOrder.code ?? '');
+            const customerEmail = String(currentOrder.customer?.emailAddress ?? '');
             return {
-                description: `Order #${currentOrder.code} for ${currentOrder.customer!.emailAddress}`,
+                description: `Order #${orderCode} for ${customerEmail}`,
             };
         };
         let createPaymentIntentPayload: any;
@@ -239,9 +243,11 @@ describe('Stripe payments', () => {
             amount: activeOrder?.totalWithTax.toString(),
             currency: activeOrder?.currencyCode?.toLowerCase(),
             customer: 'new-customer-id',
-            description: `Order #${activeOrder!.code} for ${activeOrder!.customer!.emailAddress}`,
+            description: `Order #${String(activeOrder?.code ?? '')} for ${String(
+                activeOrder?.customer?.emailAddress ?? '',
+            )}`,
             'automatic_payment_methods[enabled]': 'true',
-            'metadata[channelToken]': E2E_DEFAULT_CHANNEL_TOKEN,
+            'metadata[channelToken]': defaultChannelToken,
             'metadata[languageCode]': 'en',
             'metadata[orderId]': '1',
             'metadata[orderCode]': activeOrder?.code,
@@ -281,7 +287,7 @@ describe('Stripe payments', () => {
             currency: activeOrder?.currencyCode?.toLowerCase(),
             customer: 'new-customer-id',
             'automatic_payment_methods[enabled]': 'true',
-            'metadata[channelToken]': E2E_DEFAULT_CHANNEL_TOKEN,
+            'metadata[channelToken]': defaultChannelToken,
             'metadata[orderId]': '1',
             'metadata[languageCode]': 'en',
             'metadata[orderCode]': activeOrder?.code,
@@ -296,8 +302,9 @@ describe('Stripe payments', () => {
         StripePlugin.options.customerCreateParams = async (injector, ctx, currentOrder) => {
             const hydrator = injector.get(EntityHydrator);
             await hydrator.hydrate(ctx, currentOrder, { relations: ['customer'] });
+            const customerEmail = String(currentOrder.customer?.emailAddress ?? '');
             return {
-                description: `Description for ${currentOrder.customer!.emailAddress}`,
+                description: `Description for ${customerEmail}`,
                 phone: '12345',
             };
         };
@@ -335,7 +342,7 @@ describe('Stripe payments', () => {
         expect(createCustomerPayload).toEqual({
             email: 'trevor_donnelly96@hotmail.com',
             name: 'Trevor Donnelly',
-            description: `Description for ${activeOrder!.customer!.emailAddress}`,
+            description: `Description for ${String(activeOrder?.customer?.emailAddress ?? '')}`,
             phone: '12345',
         });
     });
@@ -409,7 +416,9 @@ describe('Stripe payments', () => {
         };
 
         const payloadString = JSON.stringify(MOCKED_WEBHOOK_PAYLOAD, null, 2);
-        const stripeWebhooks = new Stripe('test-api-secret', { apiVersion: '2023-08-16' }).webhooks;
+        const stripeWebhooks = new Stripe('test-api-secret', {
+            apiVersion: null as unknown as Stripe.LatestApiVersion,
+        }).webhooks;
         const header = stripeWebhooks.generateTestHeaderString({
             payload: payloadString,
             secret: 'test-signing-secret',
@@ -464,7 +473,9 @@ describe('Stripe payments', () => {
         };
 
         const payloadString = JSON.stringify(MOCKED_WEBHOOK_PAYLOAD, null, 2);
-        const stripeWebhooks = new Stripe('test-api-secret', { apiVersion: '2023-08-16' }).webhooks;
+        const stripeWebhooks = new Stripe('test-api-secret', {
+            apiVersion: null as unknown as Stripe.LatestApiVersion,
+        }).webhooks;
         const header = stripeWebhooks.generateTestHeaderString({
             payload: payloadString,
             secret: 'test-signing-secret',
@@ -549,7 +560,7 @@ describe('Stripe payments', () => {
                 CREATE_PAYMENT_METHOD,
                 {
                     input: {
-                        code: `stripe-payment-${E2E_DEFAULT_CHANNEL_TOKEN}`,
+                        code: `stripe-payment-${defaultChannelToken}`,
                         translations: [
                             {
                                 name: 'Stripe payment test',
@@ -594,7 +605,7 @@ describe('Stripe payments', () => {
                     client_secret: 'test-client-secret',
                 });
             const { createStripePaymentIntent } = await shopClient.query(CREATE_STRIPE_PAYMENT_INTENT);
-            expect(createPaymentIntentPayload.amount).toBe((activeOrder!.totalWithTax / 100).toString());
+            expect(createPaymentIntentPayload.amount).toBe((activeOrder.totalWithTax / 100).toString());
             expect(createPaymentIntentPayload.currency).toBe('jpy');
         });
     });

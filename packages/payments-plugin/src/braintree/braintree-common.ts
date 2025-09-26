@@ -38,21 +38,26 @@ export function defaultExtractMetadataFn(transaction: Transaction): { [key: stri
         metadata.cardData = cardData;
         metadata.public.cardData = cardData;
     }
-    if (transaction.paypalAccount && transaction.paypalAccount.authorizationId) {
-        metadata.paypalData = {
-            payerEmail: transaction.paypalAccount.payerEmail,
-            paymentId: transaction.paypalAccount.paymentId,
-            authorizationId: transaction.paypalAccount.authorizationId,
-            payerStatus: transaction.paypalAccount.payerStatus,
-            sellerProtectionStatus: transaction.paypalAccount.sellerProtectionStatus,
-            transactionFeeAmount: transaction.paypalAccount.transactionFeeAmount,
-        };
-        metadata.public.paypalData = { authorizationId: transaction.paypalAccount.authorizationId };
+    const paypalAccount = transaction.paypalAccount;
+    if (paypalAccount?.authorizationId) {
+        const paypalData = compact({
+            payerEmail: paypalAccount.payerEmail ?? undefined,
+            paymentId: paypalAccount.paymentId ?? undefined,
+            authorizationId: paypalAccount.authorizationId,
+            payerStatus: paypalAccount.payerStatus ?? undefined,
+            sellerProtectionStatus: paypalAccount.sellerProtectionStatus ?? undefined,
+            transactionFeeAmount: paypalAccount.transactionFeeAmount ?? undefined,
+        });
+        metadata.paypalData = paypalData;
+        metadata.public.paypalData = { authorizationId: paypalAccount.authorizationId };
     }
     return metadata;
 }
 
-function decodeAvsCode(code: string): string {
+function decodeAvsCode(code?: string | null): string {
+    if (!code) {
+        return 'Unknown';
+    }
     switch (code) {
         case 'I':
             return 'Not Provided';
@@ -73,4 +78,14 @@ function decodeAvsCode(code: string): string {
         default:
             return 'Unknown';
     }
+}
+
+function compact<T extends Record<string, any>>(input: T): T {
+    const output: Record<string, any> = {};
+    for (const [key, value] of Object.entries(input)) {
+        if (value !== undefined) {
+            output[key] = value;
+        }
+    }
+    return output as T;
 }
