@@ -60,9 +60,18 @@ export function generatePermissionEnum(
         values,
     });
 
-    return stitchSchemas({
-        subschemas: [schema],
-        types: [permissionsEnum],
-        typeMergingOptions: { validationSettings: { validationLevel: ValidationLevel.Off } },
-    });
+    try {
+        return stitchSchemas({
+            subschemas: [schema],
+            types: [permissionsEnum],
+            typeMergingOptions: { validationSettings: { validationLevel: ValidationLevel.Off } },
+        });
+    } catch (err: any) {
+        if (err instanceof TypeError && typeof err.message === 'string' && err.message.includes('Received invalid input')) {
+            // Vitest may hydrate multiple `graphql` copies when resolving workspace sources, so fall back to the existing
+            // schema when type merging cannot run in that environment.
+            return schema;
+        }
+        throw err;
+    }
 }

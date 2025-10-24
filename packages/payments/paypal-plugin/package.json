@@ -16,7 +16,7 @@
         "watch": "tsc -p ./tsconfig.build.json --watch",
         "test": "vitest --config ./vitest.config.mts --run",
         "test:unit": "vitest --config ./vitest.config.mts --run --dir test/unit",
-        "test:e2e": "vitest --config ./test/e2e/vitest.config.mts --run --dir test/e2e"
+        "test:e2e": "NODE_OPTIONS=\"-r ./test/e2e/ts-node-register.js\" vitest --config ./test/e2e/vitest.config.mts --run --dir test/e2e"
     },
     "homepage": "https://www.vendure.io",
     "publishConfig": {

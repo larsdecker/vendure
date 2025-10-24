@@ -1,5 +1,5 @@
-import { ensureConfigLoaded, setConfig } from '@vendure/core/dist/config/config-helpers';
-import { mergeConfig } from '@vendure/core/dist/config/merge-config';
+import { ensureConfigLoaded, setConfig } from '@vendure/core/src/config/config-helpers';
+import { mergeConfig } from '@vendure/core/src/config/merge-config';
 import gql from 'graphql-tag';
 import nock from 'nock';
 import path from 'path';
