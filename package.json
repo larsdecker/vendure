@@ -78,8 +78,7 @@
   },
   "workspaces": {
     "packages": [
-      "packages/*",
-      "packages/payments/*"
+      "packages/*"
     ],
     "nohoist": [
       "**/@types/jasmine",
