@@ -156,9 +156,13 @@ describe('PaypalService', () => {
         expect(valid).toBe(true);
     });
 
-    it('converts amounts to minor units', () => {
+    it('formats and parses amounts based on currency fraction digits', () => {
+        expect(service.formatAmount(12345, 'EUR')).toBe('123.45');
         expect(service.toMinorUnit('123.45', 'EUR')).toBe(12345);
-        expect(service.toMinorUnit('10', 'JPY')).toBe(1000);
+        expect(service.formatAmount(123, 'JPY')).toBe('123');
+        expect(service.toMinorUnit('10', 'JPY')).toBe(10);
+        expect(service.formatAmount(1999, 'BHD')).toBe('1.999');
+        expect(service.toMinorUnit('1.999', 'BHD')).toBe(1999);
     });
 
     function mockTokenEndpoint(): void {

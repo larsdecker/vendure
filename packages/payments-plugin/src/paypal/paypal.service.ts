@@ -7,6 +7,7 @@ import {
     PaypalCreateOrderInput,
     PaypalCreateOrderResult,
     PaypalHandlerArgs,
+    PaypalIntent,
     PaypalMode,
     PaypalOrderDetails,
     PaypalRefundDetails,
@@ -35,6 +36,7 @@ interface PaypalVerifyWebhookResponse {
 @Injectable()
 export class PaypalService {
     private readonly tokenCache = new Map<string, TokenCacheEntry>();
+    private readonly fractionDigitsCache = new Map<string, number>();
 
     async createOrder(
         ctx: RequestContext,
@@ -219,12 +221,10 @@ export class PaypalService {
         return response.verification_status === 'SUCCESS';
     }
 
-    formatAmount(amount: number, currencyCode: string): string {
-        const digits = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: currencyCode,
-        }).resolvedOptions().maximumFractionDigits;
-        const value = amount / 100;
+    formatAmount(amountMinor: number, currencyCode: string): string {
+        const digits = this.getFractionDigits(currencyCode);
+        const factor = Math.pow(10, digits);
+        const value = amountMinor / factor;
         return value.toFixed(digits);
     }
 
@@ -233,14 +233,9 @@ export class PaypalService {
         if (Number.isNaN(numericValue)) {
             throw new Error(`Invalid PayPal amount received: ${amount}`);
         }
-        const digits = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: currencyCode,
-        }).resolvedOptions().maximumFractionDigits;
-        if (digits === 0) {
-            return Math.round(numericValue) * 100;
-        }
-        return Math.round(numericValue * 100);
+        const digits = this.getFractionDigits(currencyCode);
+        const factor = Math.pow(10, digits);
+        return Math.round(numericValue * factor);
     }
 
     resolveConfig(args: PaypalHandlerArgs): PaypalResolvedConfig {
@@ -332,5 +327,18 @@ export class PaypalService {
             return {} as T;
         }
         return (await response.json()) as T;
+    }
+
+    private getFractionDigits(currencyCode: string): number {
+        const normalized = currencyCode.toUpperCase();
+        if (this.fractionDigitsCache.has(normalized)) {
+            return this.fractionDigitsCache.get(normalized)!;
+        }
+        const digits = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: normalized,
+        }).resolvedOptions().maximumFractionDigits;
+        this.fractionDigitsCache.set(normalized, digits);
+        return digits;
     }
 }
