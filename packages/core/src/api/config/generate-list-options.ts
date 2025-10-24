@@ -22,7 +22,7 @@ import {
     isObjectType,
     // Importing this from graphql/index.js is a workaround for the dual-package
     // hazard issue when testing this file in vitest. See https://github.com/vitejs/vite/issues/7879
-} from 'graphql/index.js';
+} from 'graphql';
 
 // Using require here to prevent issues when running vitest tests also.
 // eslint-disable-next-line @typescript-eslint/no-var-requires

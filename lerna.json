@@ -1,5 +1,5 @@
 {
-    "packages": ["packages/*"],
+    "packages": ["packages/*", "packages/payments/*"],
     "version": "3.5.0",
     "npmClient": "npm",
     "command": {

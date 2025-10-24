@@ -1,0 +1,37 @@
+{
+    "name": "@vendure/paypal-plugin",
+    "version": "3.5.0",
+    "license": "GPL-3.0-or-later",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist/**/*"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/vendure-ecommerce/vendure"
+    },
+    "scripts": {
+        "build": "rimraf dist && tsc -p ./tsconfig.build.json",
+        "watch": "tsc -p ./tsconfig.build.json --watch",
+        "test": "vitest --config ./vitest.config.mts --run",
+        "test:unit": "vitest --config ./vitest.config.mts --run --dir test/unit",
+        "test:e2e": "vitest --config ./test/e2e/vitest.config.mts --run --dir test/e2e"
+    },
+    "homepage": "https://www.vendure.io",
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "graphql-tag": "^2.12.6"
+    },
+    "devDependencies": {
+        "@vendure/common": "3.5.0",
+        "@vendure/core": "3.5.0",
+        "@vendure/testing": "3.5.0",
+        "nock": "^13.5.0",
+        "node-fetch": "^3.3.2",
+        "rimraf": "^5.0.5",
+        "typescript": "5.8.2"
+    }
+}

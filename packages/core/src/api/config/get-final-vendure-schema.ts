@@ -1,6 +1,6 @@
 import { GraphQLTypesLoader } from '@nestjs/graphql';
 import { notNullOrUndefined } from '@vendure/common/lib/shared-utils';
-import { buildSchema, extendSchema, GraphQLSchema, printSchema } from 'graphql/index';
+import { buildSchema, extendSchema, GraphQLSchema, printSchema } from 'graphql';
 import path from 'path';
 
 import {
