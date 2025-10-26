@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@vendure/core', () => {
     const logger = {
@@ -102,6 +102,35 @@ describe('paypalPaymentMethodHandler', () => {
         );
         expect(result.state).toBe('Declined');
         expect(result.errorMessage).toContain('failed');
+    });
+
+    it('declines the payment when provided amount mismatches order total', async () => {
+        const result = await paypalPaymentMethodHandler.createPayment(
+            { apiType: 'shop' } as any,
+            { totalWithTax: 200, currencyCode: 'EUR', code: 'T101' } as any,
+            150,
+            { currency: 'EUR' },
+            {},
+            {} as any,
+        );
+        expect((mockService.createOrder as any).mock.calls.length).toBe(0);
+        expect(result.state).toBe('Declined');
+        expect(result.errorMessage).toContain('does not match order total');
+    });
+
+    it('declines the payment when currency mismatches configuration', async () => {
+        (mockService.resolveConfig as any).mockReturnValue({ ...baseConfig, currencyCode: 'USD' });
+        const result = await paypalPaymentMethodHandler.createPayment(
+            { apiType: 'shop' } as any,
+            { totalWithTax: 12345, currencyCode: 'EUR', code: 'T102' } as any,
+            12345,
+            { currency: 'USD' },
+            {},
+            {} as any,
+        );
+        expect((mockService.createOrder as any).mock.calls.length).toBe(0);
+        expect(result.state).toBe('Declined');
+        expect(result.errorMessage).toContain('Currency mismatch');
     });
 
     it('captures a payment in capture mode', async () => {
@@ -208,6 +237,29 @@ describe('paypalPaymentMethodHandler', () => {
         );
         expect(result.state).toBe('Settled');
         expect(result.transactionId).toBe('REFUND1');
+    });
+
+    it('fails refund when metadata currency mismatches handler', async () => {
+        (mockService.resolveConfig as any).mockReturnValue({ ...baseConfig, currencyCode: 'USD' });
+        const payment: any = {
+            metadata: {
+                paypalOrderId: 'ORDER123',
+                captureId: 'CAPTURE123',
+                intent: 'CAPTURE',
+                currencyCode: 'EUR',
+            },
+        };
+        const result = await paypalPaymentMethodHandler.createRefund(
+            {} as any,
+            {} as any,
+            1234,
+            { currencyCode: 'EUR' } as any,
+            payment,
+            { currency: 'USD' },
+        );
+        expect(result.state).toBe('Failed');
+        expect(result.metadata?.message).toContain('Stored currency');
+        expect((mockService.refundCapture as any).mock.calls.length).toBe(0);
     });
 
     it('fails refund when capture id is missing', async () => {

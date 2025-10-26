@@ -77,6 +77,7 @@ The controller verifies PayPal’s signature using the REST API and ignores dupl
 ## Known considerations
 
 - Vendure stores amounts in **minor units** (cents). The service converts values to PayPal’s major units and validates the captured amount to avoid mismatches.
+- The handler declines payments when the submitted amount or currency does not match the order/channel configuration, preventing accidental over- or under-charging.
 - PayPal sandbox and live environments require separate client credentials. Use the handler args or environment variables per channel.
 - Do not persist secrets in payment metadata; only store non-sensitive references such as order, capture, or refund identifiers.
 - If the handler currency does not match the channel currency, the payment will be declined before hitting the PayPal API.

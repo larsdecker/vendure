@@ -5,8 +5,8 @@ import {
     Injector,
     LanguageCode,
     Logger,
-    PaymentMethodHandler,
     PaymentMetadata,
+    PaymentMethodHandler,
     SettlePaymentErrorResult,
     SettlePaymentResult,
 } from '@vendure/core';
@@ -18,22 +18,18 @@ let paypalService: PaypalService;
 
 function resolveArgs(handlerArgs: Record<string, unknown> | undefined): PaypalHandlerArgs {
     return {
-        clientId: typeof handlerArgs?.clientId === 'string' ? (handlerArgs.clientId as string) : undefined,
-        clientSecret:
-            typeof handlerArgs?.clientSecret === 'string' ? (handlerArgs.clientSecret as string) : undefined,
+        clientId: typeof handlerArgs?.clientId === 'string' ? handlerArgs.clientId : undefined,
+        clientSecret: typeof handlerArgs?.clientSecret === 'string' ? handlerArgs.clientSecret : undefined,
         mode: (handlerArgs?.mode as PaypalHandlerArgs['mode']) ?? 'sandbox',
         intent: (handlerArgs?.intent as PaypalHandlerArgs['intent']) ?? 'capture',
-        currency:
-            typeof handlerArgs?.currency === 'string'
-                ? (handlerArgs.currency as string).toUpperCase()
-                : 'EUR',
+        currency: typeof handlerArgs?.currency === 'string' ? handlerArgs.currency.toUpperCase() : 'EUR',
         brandName:
             typeof handlerArgs?.brandName === 'string' && handlerArgs.brandName.length
-                ? (handlerArgs.brandName as string)
+                ? handlerArgs.brandName
                 : undefined,
         locale:
             typeof handlerArgs?.locale === 'string' && handlerArgs.locale.length
-                ? (handlerArgs.locale as string)
+                ? handlerArgs.locale
                 : undefined,
     };
 }
@@ -131,17 +127,47 @@ export const paypalPaymentMethodHandler = new PaymentMethodHandler({
     init(injector: Injector) {
         paypalService = injector.get(PaypalService);
     },
-    async createPayment(ctx, order, _amount, handlerArgs, _metadata, _method): Promise<CreatePaymentResult | CreatePaymentErrorResult> {
+    async createPayment(
+        ctx,
+        order,
+        amountMinor,
+        handlerArgs,
+        _metadata,
+        _method,
+    ): Promise<CreatePaymentResult | CreatePaymentErrorResult> {
         try {
             const args = resolveArgs(handlerArgs);
             const config = paypalService.resolveConfig(args);
+            if (typeof amountMinor === 'number' && amountMinor !== order.totalWithTax) {
+                const message = `PayPal payment amount ${String(amountMinor)} does not match order total ${String(order.totalWithTax)}.`;
+                Logger.warn(message, loggerCtx);
+                return {
+                    amount: amountMinor,
+                    state: 'Declined',
+                    errorMessage: message,
+                    metadata: { error: message },
+                };
+            }
+            if (order.currencyCode !== config.currencyCode) {
+                const message = [
+                    `Currency mismatch: order ${String(order.code)} uses ${String(order.currencyCode)}`,
+                    `but PayPal handler is configured for ${String(config.currencyCode)}.`,
+                ].join(' ');
+                Logger.warn(message, loggerCtx);
+                return {
+                    amount: order.totalWithTax,
+                    state: 'Declined',
+                    errorMessage: message,
+                    metadata: { error: message },
+                };
+            }
             const amount = paypalService.formatAmount(order.totalWithTax, config.currencyCode);
             const result = await paypalService.createOrder(ctx, order, args, {
                 intent: config.intent,
                 amount,
                 currencyCode: config.currencyCode,
-                returnUrl: (_metadata as any)?.returnUrl,
-                cancelUrl: (_metadata as any)?.cancelUrl,
+                returnUrl: _metadata?.returnUrl,
+                cancelUrl: _metadata?.cancelUrl,
                 brandName: config.brandName,
                 locale: config.locale,
                 orderCode: order.code,
@@ -161,10 +187,7 @@ export const paypalPaymentMethodHandler = new PaymentMethodHandler({
                 metadata,
             };
         } catch (err: any) {
-            Logger.error(
-                err instanceof Error ? err.message : 'Failed to create PayPal order.',
-                loggerCtx,
-            );
+            Logger.error(err instanceof Error ? err.message : 'Failed to create PayPal order.', loggerCtx);
             return {
                 amount: order.totalWithTax,
                 state: 'Declined',
@@ -175,7 +198,12 @@ export const paypalPaymentMethodHandler = new PaymentMethodHandler({
             };
         }
     },
-    async settlePayment(ctx, order, payment, handlerArgs): Promise<SettlePaymentResult | SettlePaymentErrorResult> {
+    async settlePayment(
+        ctx,
+        order,
+        payment,
+        handlerArgs,
+    ): Promise<SettlePaymentResult | SettlePaymentErrorResult> {
         try {
             const args = resolveArgs(handlerArgs);
             const config = paypalService.resolveConfig(args);
@@ -183,7 +211,7 @@ export const paypalPaymentMethodHandler = new PaymentMethodHandler({
             if (metadata.currencyCode && metadata.currencyCode !== config.currencyCode) {
                 return {
                     success: false,
-                    errorMessage: `Stored currency ${metadata.currencyCode} does not match configured currency ${config.currencyCode}.`,
+                    errorMessage: `Stored currency ${String(metadata.currencyCode)} does not match configured currency ${String(config.currencyCode)}.`,
                 };
             }
             if (metadata.captureId) {
@@ -202,16 +230,17 @@ export const paypalPaymentMethodHandler = new PaymentMethodHandler({
                 capture = await paypalService.captureOrder(args, metadata.paypalOrderId);
             }
             const amountMinor = paypalService.toMinorUnit(capture.amount.value, capture.amount.currency_code);
-            if (amountMinor !== order.totalWithTax) {
+            const expectedAmount = typeof payment.amount === 'number' ? payment.amount : order.totalWithTax;
+            if (amountMinor !== expectedAmount) {
                 return {
                     success: false,
-                    errorMessage: `Captured amount ${amountMinor} does not match order total ${order.totalWithTax}.`,
+                    errorMessage: `Captured amount ${String(amountMinor)} does not match expected amount ${String(expectedAmount)}.`,
                 };
             }
             if (capture.amount.currency_code !== order.currencyCode) {
                 return {
                     success: false,
-                    errorMessage: `Captured currency ${capture.amount.currency_code} does not match order currency ${order.currencyCode}.`,
+                    errorMessage: `Captured currency ${String(capture.amount.currency_code)} does not match order currency ${String(order.currencyCode)}.`,
                 };
             }
             payment.transactionId = capture.id;
@@ -223,10 +252,7 @@ export const paypalPaymentMethodHandler = new PaymentMethodHandler({
             } as PaymentMetadata;
             return { success: true };
         } catch (err: any) {
-            Logger.error(
-                err instanceof Error ? err.message : 'Failed to capture PayPal order.',
-                loggerCtx,
-            );
+            Logger.error(err instanceof Error ? err.message : 'Failed to capture PayPal order.', loggerCtx);
             return {
                 success: false,
                 errorMessage: err instanceof Error ? err.message : 'Failed to capture PayPal order.',
@@ -245,8 +271,21 @@ export const paypalPaymentMethodHandler = new PaymentMethodHandler({
                 };
             }
             const config = paypalService.resolveConfig(args);
+            if (metadata.currencyCode && metadata.currencyCode !== config.currencyCode) {
+                return {
+                    state: 'Failed',
+                    metadata: {
+                        message: `Stored currency ${String(metadata.currencyCode)} does not match configured currency ${String(config.currencyCode)}.`,
+                    },
+                };
+            }
             const formattedAmount = paypalService.formatAmount(amount, config.currencyCode);
-            const refund = await paypalService.refundCapture(args, captureId, formattedAmount, config.currencyCode);
+            const refund = await paypalService.refundCapture(
+                args,
+                captureId,
+                formattedAmount,
+                config.currencyCode,
+            );
             if (refund.status !== 'COMPLETED') {
                 return {
                     state: 'Failed',
@@ -264,10 +303,7 @@ export const paypalPaymentMethodHandler = new PaymentMethodHandler({
                 },
             };
         } catch (err: any) {
-            Logger.error(
-                err instanceof Error ? err.message : 'Failed to refund PayPal capture.',
-                loggerCtx,
-            );
+            Logger.error(err instanceof Error ? err.message : 'Failed to refund PayPal capture.', loggerCtx);
             return {
                 state: 'Failed',
                 metadata: { errorMessage: err instanceof Error ? err.message : 'Failed to refund capture.' },
@@ -284,7 +320,7 @@ export const paypalPaymentMethodHandler = new PaymentMethodHandler({
             const authorizationId = metadata.authorizationId;
             if (!authorizationId) {
                 Logger.warn(
-                    `Attempted to cancel PayPal payment ${payment.id} but no authorization id was stored.`,
+                    `Attempted to cancel PayPal payment ${String(payment.id)} but no authorization id was stored.`,
                     loggerCtx,
                 );
                 return { success: true };
