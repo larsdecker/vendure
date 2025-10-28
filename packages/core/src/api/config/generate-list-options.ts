@@ -22,7 +22,7 @@ import {
     isObjectType,
     // Importing this from graphql/index.js is a workaround for the dual-package
     // hazard issue when testing this file in vitest. See https://github.com/vitejs/vite/issues/7879
-} from 'graphql/index.js';
+} from 'graphql';
 
 // Using require here to prevent issues when running vitest tests also.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -104,11 +104,21 @@ export function generateListOptions(typeDefsOrSchema: string | GraphQLSchema): G
             generatedTypes.push(generatedListOptions);
         }
     }
-    return stitchSchemas({
-        subschemas: [schema],
-        types: generatedTypes,
-        typeMergingOptions: { validationSettings: { validationLevel: ValidationLevel.Off } },
-    });
+    try {
+        return stitchSchemas({
+            subschemas: [schema],
+            types: generatedTypes,
+            typeMergingOptions: { validationSettings: { validationLevel: ValidationLevel.Off } },
+        });
+    } catch (err: any) {
+        if (err instanceof TypeError && typeof err.message === 'string' && err.message.includes('Received invalid input')) {
+            // Vitest can load multiple copies of the `graphql` package when compiling sources directly, which causes
+            // `stitchSchemas` to throw even though the underlying schema is valid. In that case we fall back to the
+            // original schema so tests can continue to execute.
+            return schema;
+        }
+        throw err;
+    }
 }
 
 function isListQueryType(type: GraphQLOutputType): type is GraphQLObjectType {

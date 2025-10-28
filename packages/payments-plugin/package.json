@@ -33,7 +33,8 @@
         "stripe": "13.x"
     },
     "dependencies": {
-        "currency.js": "2.0.4"
+        "currency.js": "2.0.4",
+        "node-fetch": "^3.3.2"
     },
     "peerDependenciesMeta": {
         "@mollie/api-client": {

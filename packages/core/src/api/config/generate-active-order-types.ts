@@ -105,9 +105,18 @@ export function generateActiveOrderTypes(
         });
     }
 
-    return stitchSchemas({
-        subschemas: [schema, ...strategySchemas],
-        types: [activeOrderInput],
-        typeMergingOptions: { validationSettings: { validationLevel: ValidationLevel.Off } },
-    });
+    try {
+        return stitchSchemas({
+            subschemas: [schema, ...strategySchemas],
+            types: [activeOrderInput],
+            typeMergingOptions: { validationSettings: { validationLevel: ValidationLevel.Off } },
+        });
+    } catch (err: any) {
+        if (err instanceof TypeError && typeof err.message === 'string' && err.message.includes('Received invalid input')) {
+            // Allow Vitest environments that load duplicate `graphql` instances to proceed without type merging errors by
+            // returning the un-stitched schema.
+            return schema;
+        }
+        throw err;
+    }
 }

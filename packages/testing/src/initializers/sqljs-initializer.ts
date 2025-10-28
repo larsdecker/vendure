@@ -32,7 +32,7 @@ export class SqljsInitializer implements TestDbInitializer<SqljsConnectionOption
         if (!fs.existsSync(this.dbFilePath)) {
             const dirName = path.dirname(this.dbFilePath);
             if (!fs.existsSync(dirName)) {
-                fs.mkdirSync(dirName);
+                fs.mkdirSync(dirName, { recursive: true });
             }
             (this.connectionOptions as Mutable<SqljsConnectionOptions>).autoSave = true;
             (this.connectionOptions as Mutable<SqljsConnectionOptions>).synchronize = true;

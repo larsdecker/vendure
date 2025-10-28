@@ -3,8 +3,7 @@ import { SUPER_ADMIN_USER_IDENTIFIER, SUPER_ADMIN_USER_PASSWORD } from '@vendure
 import { VendureConfig } from '@vendure/core';
 import FormData from 'form-data';
 import fs from 'fs';
-import { DocumentNode } from 'graphql';
-import { print } from 'graphql/language/printer';
+import { DocumentNode, print } from 'graphql';
 import gql from 'graphql-tag';
 import fetch, { RequestInit, Response } from 'node-fetch';
 import { stringify } from 'querystring';
